@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, Circle, Lock, BookOpen } from 'lucide-react';
 import { ModuleContent } from './ModuleContent';
 
@@ -14,10 +14,15 @@ interface LearningPathProps {
   onModuleStart?: (moduleName: string, level: string) => void;
 }
 
+interface CompletedModules {
+  [key: string]: boolean;
+}
+
 export function LearningPath({ onModuleStart }: LearningPathProps) {
   const [activeModule, setActiveModule] = useState<{ name: string; level: string } | null>(null);
+  const [completedModules, setCompletedModules] = useState<CompletedModules>({});
 
-  const paths = [
+  const initialPaths = [
     {
       level: 'Beginner',
       color: 'green',
@@ -143,9 +148,68 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
     },
   };
 
+  useEffect(() => {
+    const beginnerModules = initialPaths[0].modules.map(m => m.name);
+    const intermediateModules = initialPaths[1].modules.map(m => m.name);
+
+    const allBeginnerCompleted = beginnerModules.every(name => completedModules[name]);
+    const allIntermediateCompleted = intermediateModules.every(name => completedModules[name]);
+
+    if (allBeginnerCompleted && allIntermediateCompleted) {
+      const certificationPercent = (Object.values(completedModules).filter(Boolean).length / 12) * 100;
+      const certElement = document.querySelector('[data-cert-progress]');
+      if (certElement) {
+        certElement.style.width = `${certificationPercent}%`;
+        const textElement = document.querySelector('[data-cert-text]');
+        if (textElement) {
+          textElement.textContent = `${Math.round(certificationPercent)}% Complete`;
+        }
+      }
+    }
+  }, [completedModules]);
+
+  const getUpdatedPaths = () => {
+    const beginnerModules = initialPaths[0].modules.map(m => m.name);
+    const intermediateModules = initialPaths[1].modules.map(m => m.name);
+
+    const allBeginnerCompleted = beginnerModules.every(name => completedModules[name]);
+    const allIntermediateCompleted = intermediateModules.every(name => completedModules[name]);
+
+    return initialPaths.map((path, pathIndex) => ({
+      ...path,
+      modules: path.modules.map((module, moduleIndex) => {
+        let isLocked = module.locked;
+
+        if (pathIndex === 1 && allBeginnerCompleted) {
+          isLocked = false;
+        }
+
+        if (pathIndex === 2 && allIntermediateCompleted) {
+          isLocked = false;
+        }
+
+        return {
+          ...module,
+          completed: completedModules[module.name] || false,
+          locked: isLocked,
+        };
+      }),
+    }));
+  };
+
   const handleModuleStart = (moduleName: string, levelName: string) => {
     setActiveModule({ name: moduleName, level: levelName });
     onModuleStart?.(moduleName, levelName);
+  };
+
+  const handleModuleComplete = () => {
+    if (activeModule) {
+      setCompletedModules({
+        ...completedModules,
+        [activeModule.name]: true,
+      });
+    }
+    setActiveModule(null);
   };
 
   return (
@@ -158,16 +222,27 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
       </div>
 
       <div className="space-y-6">
-        {paths.map((path, pathIndex) => {
+        {getUpdatedPaths().map((path, pathIndex) => {
           const colors = colorClasses[path.color as keyof typeof colorClasses];
+          const completedCount = path.modules.filter(m => m.completed).length;
+          const totalCount = path.modules.length;
+          const isFullyCompleted = completedCount === totalCount;
+
           return (
             <div key={pathIndex} className="bg-white rounded-xl shadow-md overflow-hidden">
               <div className={`h-2 bg-gradient-to-r ${colors.gradient}`}></div>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">{path.level} Level</h2>
+                  <div className="flex items-center space-x-3">
+                    <h2 className="text-2xl font-bold text-gray-900">{path.level} Level</h2>
+                    {isFullyCompleted && (
+                      <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm font-semibold rounded-full">
+                        Completed ✓
+                      </span>
+                    )}
+                  </div>
                   <span className={`px-4 py-2 rounded-full font-semibold ${colors.bg} ${colors.text}`}>
-                    {path.modules.filter(m => m.completed).length}/{path.modules.length} Complete
+                    {completedCount}/{totalCount} Complete
                   </span>
                 </div>
 
@@ -233,15 +308,19 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <div className="flex items-start space-x-3">
           <BookOpen className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold text-blue-900 mb-2">Certification Path</h3>
             <p className="text-blue-800 text-sm mb-4">
               Complete all modules to unlock the CyberSec Academy certification and demonstrate your expertise.
             </p>
             <div className="w-full bg-blue-200 rounded-full h-3">
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full" style={{ width: '0%' }}></div>
+              <div
+                data-cert-progress
+                className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${(Object.values(completedModules).filter(Boolean).length / 12) * 100}%` }}
+              ></div>
             </div>
-            <p className="text-sm text-blue-700 mt-2">0% Complete</p>
+            <p data-cert-text className="text-sm text-blue-700 mt-2">{Math.round((Object.values(completedModules).filter(Boolean).length / 12) * 100)}% Complete</p>
           </div>
         </div>
       </div>
@@ -251,9 +330,7 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
           moduleName={activeModule.name}
           level={activeModule.level}
           onClose={() => setActiveModule(null)}
-          onComplete={() => {
-            setActiveModule(null);
-          }}
+          onComplete={handleModuleComplete}
         />
       )}
     </div>
