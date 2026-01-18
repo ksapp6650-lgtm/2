@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Circle, Lock, BookOpen } from 'lucide-react';
+import { ModuleContent } from './ModuleContent';
 
 interface Module {
   name: string;
@@ -14,7 +15,7 @@ interface LearningPathProps {
 }
 
 export function LearningPath({ onModuleStart }: LearningPathProps) {
-  const [activeModule, setActiveModule] = useState<string | null>(null);
+  const [activeModule, setActiveModule] = useState<{ name: string; level: string } | null>(null);
 
   const paths = [
     {
@@ -143,7 +144,7 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
   };
 
   const handleModuleStart = (moduleName: string, levelName: string) => {
-    setActiveModule(moduleName);
+    setActiveModule({ name: moduleName, level: levelName });
     onModuleStart?.(moduleName, levelName);
   };
 
@@ -244,6 +245,17 @@ export function LearningPath({ onModuleStart }: LearningPathProps) {
           </div>
         </div>
       </div>
+
+      {activeModule && (
+        <ModuleContent
+          moduleName={activeModule.name}
+          level={activeModule.level}
+          onClose={() => setActiveModule(null)}
+          onComplete={() => {
+            setActiveModule(null);
+          }}
+        />
+      )}
     </div>
   );
 }
